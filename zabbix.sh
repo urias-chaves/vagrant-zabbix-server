@@ -1,62 +1,77 @@
 #!/bin/bash
 
-# # echo "INICIANDO O DOWNLOAD DO MYSQL, GNUPG E DESCOMPACTANDO O ARQUIVO .DEB DO MYSQL"
-# sudo wget http://repo.mysql.com/mysql-apt-config_0.8.26-1_all.deb
-# sudo dpkg -i mysql-apt-config_0.8.26-1_all.deb
-# sudo apt update
-# sudo apt install -y gnupg
-# # sudo apt-get -f install
-# # sudo apt update
-# # sudo apt-get install -y mysql-server
-# # sudo apt install -y nginx
-# #####################################FIM#################################################
+# Autor: Urias Chaves
+# Data de Criação: Agosto de 2023
+# Script criado para ser executado apenas um vez!
 
-# #Acessando o repositório do zabbix para baixar o pacote .deb
-# #Descompactando via e atualizando o S.O
-echo "INICIANDO O DOWNLOAD DO ZABBIX"
-wget https://repo.zabbix.com/zabbix/6.4/ubuntu-arm64/pool/main/z/zabbix-release/zabbix-release_6.4-1+ubuntu20.04_all.deb
-
+#Acessando o repositório do zabbix para baixar o pacote .deb
+#Descompactando e atualizando o S.O
+echo "Iniciando o Download e Descompactando o arquivo .deb"
+wget https://repo.zabbix.com/zabbix/6.4/ubuntu/pool/main/z/zabbix-release/zabbix-release_6.4-1+ubuntu20.04_all.deb
 sudo dpkg -i zabbix-release_6.4-1+ubuntu20.04_all.deb
-apt update
+sudo apt update
+
+sleep 3
+echo "Continuando..."
 #######################################FIM##################################################
+echo "Realizando a Instalação do Zabbix com as Respectivas Dependências"
+sudo apt install -y zabbix-server-mysql zabbix-frontend-php zabbix-apache-conf zabbix-sql-scripts zabbix-agent
 
-echo "REALIZANDO A INSTALAÇÃO DO ZABBIX E MYSQL"
-apt install -y zabbix-server-mysql zabbix-frontend-php zabbix-nginx-conf zabbix-sql-scripts zabbix-agent
+sleep 3
+echo "Continuando..."
+#######################################FIM##################################################
+echo "Instalando o Mysql"
+sudo apt-get install -y mysql-server
 
-#####################################FIM###################################################
+sleep 3
+echo "Continuando..."
+#######################################FIM##################################################
+echo "Acessando o Mysql para criar o BD com Usuário Zabbix"
+sudo mysql -uroot
+sudo mysql -uroot -e "create database zabbix character set utf8mb4 collate utf8mb4_bin"
+sudo mysql -uroot -e "create user zabbix@localhost identified by 'password'"
+sudo mysql -uroot -e "grant all privileges on zabbix.* to zabbix@localhost"
+sudo mysql -uroot -e "set global log_bin_trust_function_creators = 1"
+sudo mysql -uroot -e "quit"
 
-echo "ACESSANDO O MYSQL PARA CRIAR O BD QUE SERÁ USANDO PELO ZABBIX"
-mysql -uroot -p
-password
-mysql> create database zabbix character set utf8mb4 collate utf8mb4_bin;
-mysql> create user zabbix@localhost identified by 'password';
-mysql> grant all privileges on zabbix.* to zabbix@localhost;
-mysql> set global log_bin_trust_function_creators = 1;
-mysql> quit;
+sleep 3
+echo "Continuando..."
+#######################################FIM##################################################
+echo "Importando o BD"
+sudo zcat /usr/share/zabbix-sql-scripts/mysql/server.sql.gz | mysql --default-character-set=utf8mb4 -uzabbix -ppassword zabbix
+sudo mysql -uroot -e "set global log_bin_trust_function_creators = 0"
 
-##################################FIM#######################################################
+sleep 3
+echo "Continuando..."
+#######################################FIM##################################################
+echo "Configurando o banco de dados para o servidor Zabbix"
+echo -e 'DBPassword=password' >> /etc/zabbix/zabbix_server.conf
+sleep 3
 
-echo "IMPORTANDO OS DADOS DO MYSQL"
-zcat /usr/share/zabbix-sql-scripts/mysql/server.sql.gz | mysql --default-character-set=utf8mb4 -uzabbix -p zabbix
+echo "Continuando..."
+#######################################FIM##################################################
+echo "Acessando o arquivo locale.gen para inserir a opção de idioma".
+echo 'pt_BR ISO-8859-1' >> /etc/locale.gen
+echo 'pt_BR.UTF-8 UTF-8' >> /etc/locale.gen
+sudo locale-gen
 
-#################################FIM#######################################################
+sleep 3
 
-echo "DESATIVANDO O FUNÇÃO log_bin_trust_function_creators"
-mysql -uroot -p
-password
-mysql> set global log_bin_trust_function_creators = 0;
-mysql> quit;
+echo "Continuando..."
+#######################################FIM##################################################
+echo "Reiniciando e Ativando os Serviços do Zabbix"
+sudo systemctl enable zabbix-server
+sudo /lib/systemd/systemd-sysv-install enable zabbix-server 
 
-#############################FIM##########################################################
-echo " INSERINDO OS DADOS DO BD NO ZABBIX"
-echo DBPassword=password > /etc/zabbix/zabbix_server.conf
+sudo systemctl enable zabbix-agent
+sudo /lib/systemd/systemd-sysv-install enable zabbix-agent 
 
-#############################FIM##########################################################
-echo "LIBERANDO A PORTA PARA ACESSO REMOTO E DEFININDO O NOME DO SERVIDOR"
-echo listen 8080; server_name SERVIDOR_ZABBIX > /etc/zabbix/nginx.conf
+sudo systemctl enable apache2
+sudo /lib/systemd/systemd-sysv-install enable apache2
+sleep 3
+  
+sudo systemctl restart zabbix-server zabbix-agent apache2
+sleep 3
 
-echo "REINICIANDO E ATIVANDO OS SERVIÇOS DO ZABBIX E MYSQL"
-systemctl restart zabbix-server zabbix-agent nginx php7.4-fpm
-systemctl enable zabbix-server zabbix-agent nginx php7.4-fpm
-
-echo "SCRIPT FINALIZADO"
+sudo systemctl status zabbix-server.service zabbix-agent.service apache2.service
+#######################################FIM##################################################
