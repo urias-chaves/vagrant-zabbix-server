@@ -12,7 +12,6 @@ https://app.vagrantup.com/ubuntu/boxes/focal64
 
 - Neste cenário foram usadas as portas 10051 na MV comunicando com a porta 80 da máquina real.
 
-- Para provisionar a MV com as configurações propostas é usado o shellscritp "zabbix.sh".
 
 - shellscritp "zabbix.sh" foi criado de forma simples usando apenas comandos do Linux e os passos especificados na documentação do zabbix.
  https://www.zabbix.com/download?zabbix=6.4&os_distribution=ubuntu&os_version=20.04&components=server_frontend_agent&db=mysql&ws=apache
